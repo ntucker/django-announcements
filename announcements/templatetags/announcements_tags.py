@@ -21,22 +21,16 @@ class AnnouncementsNode(template.Node):
 
     def render(self, context):
         request = context["request"]
-        qs = Announcement.objects.filter(
-            publish_start__lte=timezone.now()
-        ).filter(
-            Q(publish_end__isnull=True) | Q(publish_end__gt=timezone.now())
-        ).filter(
-            site_wide=True
-        )
+        qs = Announcement.current()
 
         exclusions = request.session.get("excluded_announcements", [])
         exclusions = set(exclusions)
         if request.user.is_authenticated():
             for dismissal in request.user.announcement_dismissals.all():
-                exclusions.add(dismissal.announcement.pk)
+                exclusions.add(dismissal.announcement_id)
         else:
-            qs = qs.exclude(members_only=True)
-        context[self.as_var] = qs.exclude(pk__in=exclusions)
+            qs = [announcement for announcement in qs if not announcement.members_only]
+        context[self.as_var] = [announcement for announcement in qs if announcement.pk not in exclusions]
         return ""
 
 
